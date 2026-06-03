@@ -1,6 +1,7 @@
 package cronjob.example.controllers;
 
 import cronjob.example.dtos.UserRequestDTO;
+import cronjob.example.dtos.UserResponseDTO;
 import cronjob.example.service.UserServices;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
-@RequestMapping("/api/user")
+@RequestMapping("/api/users")
 public class UserController {
 
    @Autowired
@@ -27,7 +28,7 @@ public class UserController {
     @PostMapping("/addinfo")
     public ResponseEntity<?> addInfo(@RequestBody UserRequestDTO userDTO){
         try {
-            UserRequestDTO Response = userServices.addInfo(userDTO);
+            UserResponseDTO Response = userServices.addInfo(userDTO);
             return new ResponseEntity<>(Response , HttpStatus.OK);
         }catch(Exception exception){
             return new ResponseEntity<>(exception.getMessage(), HttpStatus.BAD_REQUEST);

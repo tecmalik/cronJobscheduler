@@ -1,7 +1,18 @@
-CREATE TABLE IF NOT EXIST sheduler_users(
-    id BIGINT AUTO_INCREMENT  PRIMARY KEY,
-    api_name VARCHAR(255) NOT NULL,
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    information TEXT
+    );
+
+CREATE TABLE IF NOT EXISTS scheduler_log (
+    id UUID PRIMARY KEY,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    information TEXT,
+    status VARCHAR(50) NOT NULL,
     retry_count INT DEFAULT 0,
-    error_message TEXT,
-    update_at TIMESTAMP DEFAULT CURRENT_TIMESTSMP ON UPDATE CURRENT_TIMESTAMP
-);
+    error_message TEXT
+    );
