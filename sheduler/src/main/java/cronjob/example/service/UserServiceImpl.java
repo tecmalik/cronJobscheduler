@@ -22,24 +22,11 @@ public class UserServiceImpl implements UserServices {
     @Autowired
     private SchedulerLogRepository schedulerLogRepository;
 
+    @Autowired
+    private JavaMailSender mailSender;
+
     @Override
     public UserResponseDTO addInfo(UserRequestDTO userDTO) {
-
-        if (userDTO.getInformation() == null || userDTO.getInformation().isBlank()) {
-            throw new IllegalArgumentException("Information cannot be empty");
-        }
-
-        if (userDTO.getEmail() == null || userDTO.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Email cannot be empty");
-        }
-
-        if (userDTO.getFirstName() == null || userDTO.getFirstName().isBlank()) {
-            throw new IllegalArgumentException("First name cannot be empty");
-        }
-
-        if (userDTO.getLastName() == null || userDTO.getLastName().isBlank()) {
-            throw new IllegalArgumentException("Last name cannot be empty");
-        }
 
         SchedulerLog log = new SchedulerLog();
 
@@ -48,8 +35,9 @@ public class UserServiceImpl implements UserServices {
         log.setEmail(userDTO.getEmail());
         log.setInformation(userDTO.getInformation());
 
-        log.setStatus("PENDING");
         log.setRetryCount(0);
+        log.setStatus("PENDING");
+        log.setErrorMessage(null);
 
         schedulerLogRepository.save(log);
 
@@ -67,30 +55,32 @@ public class UserServiceImpl implements UserServices {
     @Override
     public void processPendingUsersCron() {
 
-        List<SchedulerLog> pendingUsers =
-                schedulerLogRepository.findPendingOrRetrying();
+        List<SchedulerLog> pendingUsers = schedulerLogRepository.findPendingOrRetrying();
 
         if (pendingUsers.isEmpty()) {
+            System.out.println("No pending users found.");
             return;
         }
 
         for (SchedulerLog log : pendingUsers) {
 
-            int currentAttempts = log.getRetryCount();
-
             try {
 
-                System.out.println(
-                        "Processing user: "
-                                + log.getEmail()
-                                + " | Attempt: "
-                                + (currentAttempts + 1)
-                );
+                System.out.println("Processing user: " + log.getEmail() + " | Attempt: " + (log.getRetryCount() + 1));
 
-                // Simulate external API
-                simulateExternalApiCrash(500);
+                validateRecord(log);
+                if (userRepository.existsByEmail(log.getEmail())) {
 
-                // Save successful user
+                    log.setStatus("FAILED");
+                    log.setErrorMessage("User already exists with email: " + log.getEmail());
+
+                    schedulerLogRepository.save(log);
+
+                    System.out.println("FAILED permanently (duplicate email): " + log.getEmail());
+
+                    continue;
+                }
+
                 User user = new User();
 
                 user.setFirstName(log.getFirstName());
@@ -98,57 +88,79 @@ public class UserServiceImpl implements UserServices {
                 user.setEmail(log.getEmail());
                 user.setInformation(log.getInformation());
 
-                userRepository.save(user);
+                userRepository.saveAndFlush(user);
 
-                // Update log
                 log.setStatus("COMPLETED");
                 log.setErrorMessage("Success");
 
-                schedulerLogRepository.save(log);
+                schedulerLogRepository.delete(log);
 
-            } catch (RuntimeException ex) {
+                System.out.println("Successfully processed: " + log.getEmail());
 
-                currentAttempts++;
+            } catch (Exception ex) {
 
-                String errorReason =
-                        ex.getMessage() != null
-                                ? ex.getMessage()
-                                : "Internal Server Error";
-
+                int currentAttempts = log.getRetryCount() + 1;
                 log.setRetryCount(currentAttempts);
+                String errorReason = ex.getMessage() != null ? ex.getMessage() : "Unknown error";
                 log.setErrorMessage(errorReason);
-
                 if (currentAttempts >= 3) {
-
                     log.setStatus("FAILED");
-
-                    sendFailureEmail(
-                            log.getEmail(),
-                            errorReason
-                    );
-
+                    sendFailureEmail(log.getEmail(), errorReason);
+                    System.out.println("FAILED permanently: " + log.getEmail());
                 } else {
-
                     log.setStatus("RETRYING");
+                    System.out.println("Retrying " + log.getEmail() + " | Retry Count: " + currentAttempts);
                 }
 
-                schedulerLogRepository.save(log);
+                schedulerLogRepository.saveAndFlush(log);
             }
         }
     }
 
-    private void simulateExternalApiCrash(int code) {
-        if (code == 500) {
-            throw new RuntimeException("Internal Server Error (Simulated 500)");
+    private void validateRecord(SchedulerLog log) {
+
+        if (log.getFirstName() == null || log.getFirstName().isBlank()) {
+            throw new RuntimeException("First name is missing");
         }
+
+        if (log.getLastName() == null ||
+                log.getLastName().isBlank()) {
+            throw new RuntimeException("Last name is missing");
+        }
+
+        if (log.getEmail() == null ||
+                log.getEmail().isBlank()) {
+            throw new RuntimeException("Email is missing");
+        }
+
+        if (log.getInformation() == null || log.getInformation().isBlank()) throw new RuntimeException("Information is missing");
+
     }
 
     private void sendFailureEmail(String email, String errorReason) {
-        System.out.println(
-                "EMAIL SENT TO ADMIN: Registration failed for "
-                        + email
-                        + ". Error: "
-                        + errorReason
-        );
+        System.out.println("EMAIL SENT TO ADMIN: Registration failed for " + email + ". Error: " + errorReason);
+        try {
+
+            SimpleMailMessage message = new SimpleMailMessage();
+
+            message.setTo("admin@yourcompany.com");
+            message.setSubject("User Registration Failed");
+
+            message.setText(
+                    "Registration failed.\n\n" +
+                            "Email: " + email + "\n" +
+                            "Reason: " + errorReason
+            );
+
+            mailSender.send(message);
+
+        } catch (Exception ex) {
+
+            System.err.println(
+                    "Failed to send notification email: "
+                            + ex.getMessage()
+            );
+        }
+
     }
 }
