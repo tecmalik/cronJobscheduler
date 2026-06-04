@@ -8,6 +8,8 @@ import cronjob.example.data.repository.UserRepository;
 import cronjob.example.dtos.UserRequestDTO;
 import cronjob.example.dtos.UserResponseDTO;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -156,10 +158,7 @@ public class UserServiceImpl implements UserServices {
 
         } catch (Exception ex) {
 
-            System.err.println(
-                    "Failed to send notification email: "
-                            + ex.getMessage()
-            );
+            System.err.println("Failed to send notification email: " + ex.getMessage());
         }
 
     }
