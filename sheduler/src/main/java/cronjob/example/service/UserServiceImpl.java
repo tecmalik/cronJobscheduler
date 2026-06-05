@@ -105,6 +105,7 @@ public class UserServiceImpl implements UserServices {
                 log.setRetryCount(currentAttempts);
                 String errorReason = ex.getMessage() != null ? ex.getMessage() : "Unknown error";
                 log.setErrorMessage(errorReason);
+
                 if (currentAttempts >= 3) {
                     log.setStatus("FAILED");
                     sendFailureEmail(log.getEmail(), errorReason);
@@ -145,14 +146,10 @@ public class UserServiceImpl implements UserServices {
 
             SimpleMailMessage message = new SimpleMailMessage();
 
-            message.setTo("admin@yourcompany.com");
+            message.setTo("abdulmalikojo23@gmail.com");
             message.setSubject("User Registration Failed");
 
-            message.setText(
-                    "Registration failed.\n\n" +
-                            "Email: " + email + "\n" +
-                            "Reason: " + errorReason
-            );
+            message.setText("Registration failed.\n\n" + "Email: " + email + "\n" + "Reason: " + errorReason );
 
             mailSender.send(message);
 
